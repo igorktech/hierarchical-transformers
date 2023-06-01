@@ -90,7 +90,7 @@ class HATConfig(PretrainedConfig):
         classifier_dropout (:obj:`float`, `optional`):
             The dropout ratio for the classification head.
     """
-    model_type = "hierarchical-transformer"
+    model_type = "hi-transformer"
 
     def __init__(
         self,
