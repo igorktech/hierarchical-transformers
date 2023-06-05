@@ -51,6 +51,7 @@ from transformers.utils import check_min_version
 from transformers.utils.versions import require_version
 from models.hat import HATForMaskedLM, HATTokenizer, HATConfig
 from models.longformer import LongformerTokenizer, LongformerForMaskedLM
+import torch
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.15.0")
@@ -440,10 +441,13 @@ def main():
     # First we tokenize all the texts.
     text_column_name = "text"
 
-    if 'wikipedia' in data_args.dataset_name:
+    if data_args.dataset_name is not None:
+        if 'wikipedia' in data_args.dataset_name:
+            remove_columns = ['text']
+        elif data_args.dataset_name == 'c4':
+            remove_columns = ['text', 'url', 'timestamp']
+    else:
         remove_columns = ['text']
-    elif data_args.dataset_name == 'c4':
-        remove_columns = ['text', 'url', 'timestamp']
 
 
     if data_args.max_seq_length is None:
@@ -638,6 +642,9 @@ def main():
         pad_to_multiple_of=config.max_sentence_length,
     )
 
+    if not is_torch_tpu_available():
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = model.to(device)
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
