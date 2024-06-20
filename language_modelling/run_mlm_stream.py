@@ -87,9 +87,6 @@ class ModelArguments:
             "n_embd=10,resid_pdrop=0.2,scale_attn_weights=false,summary_type=cls_index"
         },
     )
-    config_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
-    )
     tokenizer_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
     )
@@ -114,7 +111,7 @@ class ModelArguments:
     )
 
     def __post_init__(self):
-        if self.config_overrides is not None and (self.config_name is not None or self.model_name_or_path is not None):
+        if self.config_overrides is not None and (self.model_name_or_path is not None):
             raise ValueError(
                 "--config_overrides can't be used in combination with --config_name or --model_name_or_path"
             )
@@ -353,15 +350,8 @@ def main():
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
-    if model_args.config_name and 'hi-transformer' in model_args.config_name:
-        config = HATConfig.from_pretrained(model_args.config_name, **config_kwargs)
-    elif model_args.model_name_or_path and 'hi-transformer' in model_args.model_name_or_path:
+    if model_args.model_name_or_path and 'hat' in model_args.model_name_or_path:
         config = HATConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
-    elif model_args.config_name:
-        config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
-        config.max_sentence_size = 128
-        config.max_sentence_length = 128
-        config.max_sentences = data_args.max_sentences
     elif model_args.model_name_or_path:
         config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
         config.max_sentence_size = 128
@@ -380,14 +370,13 @@ def main():
         "use_fast": model_args.use_fast_tokenizer,
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
+        "model_max_length": data_args.max_seq_length,
     }
-    if config.model_type == 'hi-transformer':
+    if config.model_type == 'hierarchical-transformer':
         if model_args.tokenizer_name:
             tokenizer = HATTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
-        elif model_args.model_name_or_path:
+        else:
             tokenizer = HATTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
-        elif model_args.config_name:
-            tokenizer = HATTokenizer.from_pretrained(model_args.config_name, **tokenizer_kwargs)
     elif config.model_type == 'longformer':
         tokenizer = LongformerTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
     elif model_args.tokenizer_name:
@@ -401,7 +390,7 @@ def main():
         )
 
     if model_args.model_name_or_path:
-        if config.model_type == 'hi-transformer':
+        if config.model_type == 'hierarchical-transformer':
             model = HATForMaskedLM.from_pretrained(
                 model_args.model_name_or_path,
                 from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -462,7 +451,7 @@ def main():
         if data_args.max_seq_length > tokenizer.model_max_length:
             logger.warning(
                 f"The max_seq_length passed ({data_args.max_seq_length}) is larger than the maximum length for the"
-                f"model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
+                f" model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
             )
         max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
