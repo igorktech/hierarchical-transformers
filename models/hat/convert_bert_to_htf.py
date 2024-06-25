@@ -86,7 +86,10 @@ def convert_bert_to_htf():
         htf_config.num_attention_heads = bert_config.num_attention_heads
     except:
         htf_config.num_attention_heads = bert_config.n_heads
-    htf_config.hidden_act = bert_config.hidden_act
+    try:
+        htf_config.hidden_act = bert_config.hidden_act
+    except:
+        htf_config.hidden_act = bert_config.activation
     htf_config.encoder_layout = ENCODER_LAYOUT
     # Vocabulary parameters
     htf_config.vocab_size = bert_config.vocab_size
