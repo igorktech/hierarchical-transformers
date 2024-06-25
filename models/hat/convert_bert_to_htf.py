@@ -96,7 +96,10 @@ def convert_bert_to_htf():
     htf_config.pad_token_id = bert_config.pad_token_id
     htf_config.bos_token_id = bert_config.bos_token_id
     htf_config.eos_token_id = bert_config.eos_token_id
-    htf_config.type_vocab_size = bert_config.type_vocab_size
+    try:
+        htf_config.type_vocab_size = bert_config.type_vocab_size
+    except:
+        htf_config.type_vocab_size = 2
 
     # load dummy hi-transformer model
     htf_model = HATForMaskedLM.from_config(htf_config)
