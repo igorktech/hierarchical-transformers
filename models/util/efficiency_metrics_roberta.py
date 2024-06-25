@@ -116,7 +116,7 @@ def efficiency_metrics():
                                                 "document_encoder": True if 'D' in block_pattern else False}
 
                 # load dummy config and change specifications
-                htf_config = HATConfig.from_pretrained(f'{DATA_DIR}/hi-transformer')
+                htf_config = HATConfig.from_pretrained(f'{DATA_DIR}/hierarchical-transformer')
                 # Text length parameters
                 htf_config.max_sentence_length = MAX_SENTENCE_LENGTH
                 htf_config.MAX_SENTENCES = MAX_SENTENCES
@@ -132,7 +132,7 @@ def efficiency_metrics():
                 htf_config.vocab_size = roberta_config.vocab_size
                 htf_config.type_vocab_size = 2
                 lf_config.num_labels = 2
-                # load dummy hi-transformer model
+                # load dummy hierarchical-transformer model
                 htf_model = TASK_MODEL[task]['hilm'].from_config(htf_config)
                 model_total_params = sum(p.numel() for p in htf_model.hat.parameters() if p.requires_grad)
                 model_total_params = model_total_params / 1e6

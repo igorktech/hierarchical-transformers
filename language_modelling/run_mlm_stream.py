@@ -284,10 +284,10 @@ def main():
         # Downloading and loading a dataset from the hub.
         raw_datasets = load_dataset(
             data_args.dataset_name,
-            data_args.dataset_config_name,
-            data_dir=data_args.dataset_name,
-            cache_dir=model_args.cache_dir,
-            streaming=True
+            # data_args.dataset_config_name,
+            # data_dir=data_args.dataset_name,
+            # cache_dir=model_args.cache_dir,
+            # streaming=True
         )
         if "validation" not in raw_datasets.keys():
             raw_datasets["validation"] = load_dataset(
@@ -419,7 +419,7 @@ def main():
             )
     else:
         logger.info("Training new model from scratch")
-        if config.model_type == 'hi-transformer':
+        if config.model_type == 'hierarchical-transformer':
             model = HATForMaskedLM.from_config(config)
         else:
             model = AutoModelForMaskedLM.from_config(config)
@@ -429,7 +429,7 @@ def main():
     # Preprocessing the datasets.
     # First we tokenize all the texts.
     text_column_name = "text"
-
+    remove_columns = [text_column_name]
     if data_args.dataset_name is not None:
         if 'wikipedia' in data_args.dataset_name:
             remove_columns = ['text']
@@ -459,22 +459,29 @@ def main():
         # When using line_by_line, we just tokenize each nonempty line.
         padding = "max_length" if data_args.pad_to_max_length else False
 
-        if config.model_type in ['hi-transformer', 'longformer']:
+        if config.model_type in ['hierarchical-transformer', 'longformer']:
+            print("HERERE")
             def tokenize_function(examples):
                 # Remove empty lines
-                examples[text_column_name] = [
-                    line for line in examples[text_column_name] if len(line) > 0 and not line.isspace()
-                ]
-                return tokenizer(
-                    examples[text_column_name],
+                # examples[text_column_name] = [
+                #     line for line in examples[text_column_name] if len(line) > 0 and not line.isspace()
+                # ]
+                tokenized = tokenizer(
+                    [examples[text_column_name]],
                     padding=padding,
                     truncation=True,
                     max_length=max_seq_length,
-                    greedy_chunking=data_args.greedy_chunking,
+                    # greedy_chunking=data_args.greedy_chunking,
                     # We use this option because DataCollatorForLanguageModeling (see below) is more efficient when it
                     # receives the `special_tokens_mask`.
                     return_special_tokens_mask=True,
                 )
+
+                for key in tokenized.keys():
+                    if isinstance(tokenized[key][0], list):
+                        tokenized[key] = [item for sublist in tokenized[key] for item in sublist]
+
+                return tokenized
         else:
             def tokenize_function(examples):
                 # Remove empty lines
@@ -494,14 +501,14 @@ def main():
         with training_args.main_process_first(desc="dataset map tokenization"):
             tokenized_datasets = raw_datasets.map(
                 tokenize_function,
-                batched=True,
+                # batched=True,
                 remove_columns=remove_columns,
             )
     elif data_args.min_sequence_length:
         # When using min_sequence_length, we just tokenize each nonempty line.
         padding = "max_length" if data_args.pad_to_max_length else False
 
-        if config.model_type in ['hi-transformer', 'longformer']:
+        if config.model_type in ['hierarchical-transformer', 'longformer']:
             def tokenize_function(examples):
                 # Remove empty lines
                 examples[text_column_name] = [
@@ -630,10 +637,12 @@ def main():
         mlm_probability=data_args.mlm_probability,
         pad_to_multiple_of=config.max_sentence_length,
     )
-
+    device = 'cpu'
     if not is_torch_tpu_available():
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = model.to(device)
+    # if torch.backends.mps.is_available():
+        # device = torch.device("mps")
+    model = model.to(device)
     # Initialize our Trainer
     trainer = Trainer(
         model=model,

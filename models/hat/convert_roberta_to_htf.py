@@ -58,7 +58,7 @@ def convert_roberta_to_htf():
     htf_config.eos_token_id = roberta_config.eos_token_id
     htf_config.type_vocab_size = roberta_config.type_vocab_size
 
-    # load dummy hi-transformer model
+    # load dummy hierarchical-transformer model
     htf_model = HATForMaskedLM.from_config(htf_config)
 
     # copy embeddings

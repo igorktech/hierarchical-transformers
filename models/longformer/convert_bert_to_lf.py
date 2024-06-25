@@ -47,7 +47,7 @@ def convert_bert_to_htf():
     lf_config.sep_token_id = tokenizer.sep_token_id
     lf_config.type_vocab_size = bert_config.type_vocab_size
 
-    # load dummy hi-transformer model
+    # load dummy hierarchical-transformer model
     lf_model = AutoModelForMaskedLM.from_config(lf_config)
 
     # copy embeddings

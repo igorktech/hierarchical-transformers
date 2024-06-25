@@ -153,7 +153,7 @@ class HATTokenizer:
             for input_key in example_batch:
                 key_inputs_list = []
                 for idx, example in enumerate(example_batch[input_key][:self.config.max_sentences]):
-                    key_inputs_list.append(self.pad_sentence(example, special_id=self.type2id[input_key]))
+                    key_inputs_list.append(self.pad_sentence(example, chunk_size=self.config.max_sentence_size, special_id=self.type2id[input_key]))
                 if isinstance(key_inputs_list[0], list):
                     key_inputs_list = [token for sentence in key_inputs_list for token in sentence]
                 else:
@@ -171,19 +171,19 @@ class HATTokenizer:
 
         return batch
 
-    def chunks(self, flat_inputs, chunk_size=128, special_id=0):
+    def chunks(self, flat_inputs, chunk_size=64, special_id=0):
         if isinstance(flat_inputs, list):
             return self.list_chunks(flat_inputs, chunk_size, special_id)
         else:
             return self.tensor_chunks(flat_inputs, chunk_size, special_id)
 
-    def list_chunks(self, flat_inputs, chunk_size=128, special_id=(0, 0)):
+    def list_chunks(self, flat_inputs, chunk_size=64, special_id=(0, 0)):
         """Yield successive n-sized chunks from lst."""
         structured_inputs = [[special_id[0] if sum(flat_inputs[i:i + chunk_size-1]) else special_id[1]]
                              + flat_inputs[i:i + chunk_size-1] for i in range(0, len(flat_inputs), chunk_size-1)]
         return [token_input for sentence_inputs in structured_inputs for token_input in sentence_inputs]
 
-    def tensor_chunks(self, flat_inputs, chunk_size=128, special_id=(0, 0)):
+    def tensor_chunks(self, flat_inputs, chunk_size=64, special_id=(0, 0)):
         """Yield successive n-sized chunks from lst."""
         structured_inputs = torch.stack([torch.cat((torch.tensor([special_id[0] if flat_inputs[i:i + chunk_size-1].sum() else special_id[1]], dtype=torch.int),
                                                     flat_inputs[i:i + chunk_size-1])) for i in range(0, len(flat_inputs), chunk_size-1)])

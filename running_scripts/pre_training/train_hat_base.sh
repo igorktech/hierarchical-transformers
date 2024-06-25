@@ -14,7 +14,7 @@ python3 language_modelling/xla_spawn.py --num_cores=8 language_modelling/run_mlm
     --dataset_config_name en \
     --do_train \
     --do_eval \
-    --output_dir data/PLMs/hi-transformer-${LAYOUT}-roberta-mlm \
+    --output_dir data/PLMs/hierarchical-transformer-${LAYOUT}-roberta-mlm \
     --overwrite_output_dir \
     --logging_steps 500 \
     --evaluation_strategy steps \

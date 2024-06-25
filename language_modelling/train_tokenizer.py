@@ -5,7 +5,7 @@ from transformers import PreTrainedTokenizerFast, AutoTokenizer
 import argparse
 
 CUSTOM_TOK_FOLDER = '../data/custom-tokenizer'
-hat_FOLDER = '../data/hi-transformer'
+hat_FOLDER = '../data/hierarchical-transformer'
 ROBERTA_FOLDER = '../data/roberta'
 
 

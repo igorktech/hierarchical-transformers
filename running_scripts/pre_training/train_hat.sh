@@ -10,12 +10,12 @@ MAX_SENTENCES=8
 python3 models/hat/convert_bert_to_htf.py --layout ${LAYOUT} --max_sentences ${MAX_SENTENCES}
 
 python3 language_modelling/xla_spawn.py --num_cores=8 language_modelling/run_mlm_stream.py \
-    --model_name_or_path data/PLMs/hi-transformer-${LAYOUT}-${MODEL_WARMUP_STRATEGY} \
+    --model_name_or_path data/PLMs/hierarchical-transformer-${LAYOUT}-${MODEL_WARMUP_STRATEGY} \
     --dataset_name c4 \
     --dataset_config_name en \
     --do_train \
     --do_eval \
-    --output_dir data/PLMs/hi-transformer-${LAYOUT}-${MODEL_WARMUP_STRATEGY}-mlm \
+    --output_dir data/PLMs/hierarchical-transformer-${LAYOUT}-${MODEL_WARMUP_STRATEGY}-mlm \
     --overwrite_output_dir \
     --logging_steps 500 \
     --evaluation_strategy steps \
