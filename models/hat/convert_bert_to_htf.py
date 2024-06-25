@@ -13,6 +13,7 @@ LAYOUTS = {
     's2': 'S|SD|D|S|SD|D|S|SD|D',
     'p1': 'S|SD|S|SD|S|SD|S|SD',
     'p2': 'S|S|SD|S|S|SD|S|S|SD',
+    'p2_2': 'S|S|SD|S|S|SD',
     'e1': 'SD|SD|SD|S|S|S|S|S|S',
     'e2': 'S|SD|D|S|SD|D|S|S|S|S',
     'l1': 'S|S|S|S|S|S|SD|SD|SD',
@@ -36,13 +37,16 @@ def convert_bert_to_htf():
                              'random: D encoders are not warm-started'
                              'embeds-only: No warm-starting, except embeddings'
                              'none: No warm-starting')
-    parser.add_argument('--layout', default='s1', choices=['s1', 's2', 'p1', 'p2', 'e1', 'e2',
+    parser.add_argument('--layout', default='s1', choices=['s1', 's2', 'p1', 'p2','p2_2', 'e1', 'e2',
                                                            'l1', 'l2', 'b1', 'b2', 'f12', 'f8', 'f6'],
                         help='S|D encoders layout')
     parser.add_argument('--max_sentences', default=8)
+    parser.add_argument('--model_name', type=str, default=None)
+    parser.add_argument('--max_sentence_length', default=128)
+
     config = parser.parse_args()
-    MAX_SENTENCE_LENGTH = 128
     MAX_SENTENCES = int(config.max_sentences)
+    MAX_SENTENCE_LENGTH = int(config.max_sentence_length)
     ENCODER_LAYOUT = {}
     for idx, block_pattern in enumerate(LAYOUTS[config.layout].split('|')):
         ENCODER_LAYOUT[str(idx)] = {"sentence_encoder": True if 'S' in block_pattern else False,
@@ -51,7 +55,10 @@ def convert_bert_to_htf():
     NUM_HIDDEN_LAYERS = len(ENCODER_LAYOUT.keys())
     BERT_LAYERS = NUM_HIDDEN_LAYERS if config.warmup_strategy != 'linear' else NUM_HIDDEN_LAYERS*2
     BERT_LAYERS = BERT_LAYERS + 1 if BERT_LAYERS % 2 else BERT_LAYERS
-    BERT_CHECKPOINT = f'google/bert_uncased_L-{str(BERT_LAYERS)}_H-256_A-4'
+    if config.model_name is None:
+        BERT_CHECKPOINT = f'google/bert_uncased_L-{str(BERT_LAYERS)}_H-256_A-4'
+    else:
+        BERT_CHECKPOINT = config.model_name
 
     # load pre-trained bert model and tokenizer
     bert_model = AutoModelForMaskedLM.from_pretrained(BERT_CHECKPOINT)
