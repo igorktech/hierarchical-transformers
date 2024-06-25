@@ -78,7 +78,10 @@ def convert_bert_to_htf():
         htf_config.hidden_size = bert_config.hidden_size
     except:
         htf_config.hidden_size = bert_config.dim
-    htf_config.intermediate_size = bert_config.intermediate_size
+    try:
+        htf_config.intermediate_size = bert_config.intermediate_size
+    except:
+        htf_config.intermediate_size = bert_config.hidden_dim
     try:
         htf_config.num_attention_heads = bert_config.num_attention_heads
     except:
