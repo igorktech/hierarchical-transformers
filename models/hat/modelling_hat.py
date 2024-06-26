@@ -521,6 +521,7 @@ class HATEmbeddings(nn.Module):
 
 
 class HATLayer(nn.Module):
+    _tied_weights_keys = ["position_embeddings.weight", "position_embeddings.bias"]
     def __init__(self, config, use_sentence_encoder=True, use_document_encoder=True):
         super().__init__()
         self.max_sentence_length = config.max_sentence_length
@@ -622,6 +623,7 @@ class TransformerLayer(nn.Module):
 
 
 class HATEncoder(nn.Module):
+
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -898,7 +900,6 @@ class HATModel(HATPreTrainedModel):
     .. _*Attention is all you need*: https://arxiv.org/abs/1706.03762
 
     """
-
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     # Copied from transformers.models.bert.modeling_bert.BertModel.__init__ with Bert->HAT
@@ -1073,6 +1074,7 @@ class HATSiameseHead(nn.Module):
 
 @add_start_docstrings("""HAT Model with a `language modeling` head on top.""", HAT_START_DOCSTRING)
 class HATForMaskedLM(HATPreTrainedModel):
+    _tied_weights_keys = ["lm_head.decoder.weight", "lm_head.decoder.bias"]
     _keys_to_ignore_on_load_missing = [r"position_ids"]
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 

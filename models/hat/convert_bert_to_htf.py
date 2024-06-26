@@ -12,6 +12,7 @@ LAYOUTS = {
     's2': 'S|SD|D|S|SD|D|S|SD|D',
     'p1': 'S|SD|S|SD|S|SD|S|SD',
     'p2': 'S|S|SD|S|S|SD|S|S|SD',
+    'p12': 'S|S|SD|S|S|SD|S|S|SD|S|S|SD',
     'p2_2': 'S|S|SD|S|S|SD',
     'e1': 'SD|SD|SD|S|S|S|S|S|S',
     'e2': 'S|SD|D|S|SD|D|S|S|S|S',
@@ -27,7 +28,7 @@ LAYOUTS = {
 def convert_bert_to_htf():
     parser = argparse.ArgumentParser()
     parser.add_argument('--warmup_strategy', default='grouped', choices=['linear', 'grouped', 'random', 'embeds-only', 'none'])
-    parser.add_argument('--layout', default='s1', choices=['s1', 's2', 'p1', 'p2','p2_2', 'e1', 'e2', 'l1', 'l2', 'b1', 'b2', 'f12', 'f8', 'f6'])
+    parser.add_argument('--layout', default='s1', choices=['s1', 's2', 'p1', 'p2','p12','p2_2', 'e1', 'e2', 'l1', 'l2', 'b1', 'b2', 'f12', 'f8', 'f6'])
     parser.add_argument('--max_sentences', default=8)
     parser.add_argument('--model_name', type=str, default=None)
     parser.add_argument('--max_sentence_length', default=64)
@@ -167,7 +168,7 @@ def convert_bert_to_htf():
             # DistilBERT doesn't have a separate bias, it's included in the vocab_projector
             htf_model.lm_head.bias = copy.deepcopy(bert_model.vocab_projector.bias)
     # save model
-    htf_model.save_pretrained(f'{DATA_DIR}/PLMs/hat-{config.layout}-{config.warmup_strategy}',safe_serialization=False)
+    htf_model.save_pretrained(f'{DATA_DIR}/PLMs/hat-{config.layout}-{config.warmup_strategy}')#,safe_serialization=False)
 
     # save tokenizer
     tokenizer.save_pretrained(f'{DATA_DIR}/PLMs/hat-{config.layout}-{config.warmup_strategy}')
