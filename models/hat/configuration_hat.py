@@ -114,7 +114,7 @@ class HATConfig(PretrainedConfig):
             use_cache=True,
             classifier_dropout=None,
             auto_map={
-                "AutoConfig": "configuration_hat.HiBiAlBertConfig",
+                "AutoConfig": "configuration_hat.HATConfig",
                 "AutoModel": "modelling_hat.HATModel",
                 "AutoModelForMaskedLM": "modelling_hat.HATForMaskedLM",
                 "AutoModelForSequenceClassification": "modelling_hat.HATForSequenceClassification",
