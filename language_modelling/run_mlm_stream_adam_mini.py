@@ -659,17 +659,27 @@ def main():
         eps=eps,
         weight_decay=weight_decay,
         model_sharding=True,
-        dim=config.hidden_dim,  # Assuming 'dim' corresponds to 'hidden_size'
-        n_heads=config.n_heads,  # Assuming this is the correct attribute
-        n_kv_heads=config.n_heads,  # Assuming no separate KV heads
+        dim=config.hidden_size,  # Assuming 'dim' corresponds to 'hidden_size'
+        n_heads=config.num_attention_heads,  # Assuming this is the correct attribute
+        n_kv_heads=config.num_attention_heads,  # Assuming no separate KV heads
     )
-    # Add OneCycleLR scheduler
+
+    if training_args.max_steps > 0:
+        total_steps = training_args.max_steps
+    else:
+        # Fallback calculation if max_steps is not set
+        total_steps = (len(train_dataset) // (training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps)) * training_args.num_train_epochs
+
+    print(f"Total steps for OneCycleLR: {total_steps}")
+
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
         max_lr=lr,
-        total_steps=training_args.num_train_epochs * len(train_dataset) // training_args.per_device_train_batch_size,
+        total_steps=total_steps,
         anneal_strategy='linear',
+        cycle_momentum=False
     )
+
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
