@@ -41,8 +41,6 @@ from transformers.activations import silu
 # from transformers.activations import get_activation
 from transformers import PretrainedConfig
 
-
-
 logger = logging.get_logger(__name__)
 
 # _CHECKPOINT_FOR_DOC = "kiddothe2b/hierarchical-transformer-base-4096"
@@ -58,7 +56,8 @@ RoHAT_PRETRAINED_MODEL_ARCHIVE_LIST = [
 
 def transform_tokens2sentences(hidden_states, num_sentences, max_sentence_length):
     # transform sequence into segments
-    seg_hidden_states = torch.reshape(hidden_states, (hidden_states.size(0), num_sentences, max_sentence_length, hidden_states.size(-1)))
+    seg_hidden_states = torch.reshape(hidden_states, (
+        hidden_states.size(0), num_sentences, max_sentence_length, hidden_states.size(-1)))
     # squash segments into sequence into a single axis (samples * segments, max_segment_length, hidden_size)
     hidden_states_reshape = seg_hidden_states.contiguous().view(hidden_states.size(0) * num_sentences,
                                                                 max_sentence_length, seg_hidden_states.size(-1))
@@ -189,6 +188,7 @@ class RoHATForBoWPreTrainingOutput(ModelOutput):
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
 
+
 @dataclass
 class RoHATForVICRegPreTrainingOutput(ModelOutput):
     """
@@ -239,6 +239,7 @@ class RoHATForVICRegPreTrainingOutput(ModelOutput):
     sentence_prediction_logits: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
+
 
 @dataclass
 class RoHATForSimCLRPreTrainingOutput(ModelOutput):
@@ -386,28 +387,28 @@ class RoHATConfig(PretrainedConfig):
     model_type = "rohat"
 
     def __init__(
-        self,
-        vocab_size=30522,
-        hidden_size=768,
-        max_sentences=64,
-        max_sentence_size=128,
-        model_max_length=8192,
-        num_hidden_layers=12,
-        num_attention_heads=12,
-        intermediate_size=3072,
-        hidden_act="silu",
-        hidden_dropout_prob=0.1,
-        attention_probs_dropout_prob=0.1,
-        max_position_embeddings=512,
-        type_vocab_size=2,
-        initializer_range=0.02,
-        layer_norm_eps=1e-12,
-        pad_token_id=0,
-        encoder_layout=None,
-        rotary_value = False,
-        use_cache=True,
-        classifier_dropout=None,
-        **kwargs
+            self,
+            vocab_size=30522,
+            hidden_size=768,
+            max_sentences=64,
+            max_sentence_size=128,
+            model_max_length=8192,
+            num_hidden_layers=12,
+            num_attention_heads=12,
+            intermediate_size=3072,
+            hidden_act="silu",
+            hidden_dropout_prob=0.1,
+            attention_probs_dropout_prob=0.1,
+            max_position_embeddings=512,
+            type_vocab_size=2,
+            initializer_range=0.02,
+            layer_norm_eps=1e-12,
+            pad_token_id=0,
+            encoder_layout=None,
+            rotary_value=False,
+            use_cache=True,
+            classifier_dropout=None,
+            **kwargs
     ):
         super().__init__(pad_token_id=pad_token_id, **kwargs)
 
@@ -477,7 +478,6 @@ class RoHATLayer(nn.Module):
         self.hidden_size = config.hidden_size
         self.use_document_encoder = use_document_encoder
         self.use_sentence_encoder = use_sentence_encoder
-
         if self.use_sentence_encoder:
             self.sentence_encoder = TransformerLayer(config)
         if self.use_document_encoder:
@@ -487,10 +487,10 @@ class RoHATLayer(nn.Module):
             self,
             hidden_states,
             attention_mask=None,
-            sinusoidal_pos=None,
             num_sentences=None,
             output_attentions=False,
     ):
+
         sentence_outputs = (None, None)
         if self.use_sentence_encoder:
             # transform sequences to sentences
@@ -501,15 +501,9 @@ class RoHATLayer(nn.Module):
                                                        num_sentences=num_sentences,
                                                        max_sentence_length=self.max_sentence_length)
 
-            sentence_sinusoidal_pos = sinusoidal_pos[:, :self.max_sentence_length,
-                                      :] if sinusoidal_pos is not None else None
-
-            sentence_outputs = self.sentence_encoder(
-                sentence_inputs,
-                attention_mask=sentence_masks,
-                sinusoidal_pos=sentence_sinusoidal_pos,
-                output_attentions=output_attentions,
-            )
+            sentence_outputs = self.sentence_encoder(sentence_inputs,
+                                                     sentence_masks,
+                                                     output_attentions=output_attentions)
 
             # transform sentences to tokens
             outputs = transform_sentences2tokens(sentence_outputs[0],
@@ -524,15 +518,9 @@ class RoHATLayer(nn.Module):
             sentence_global_tokens = outputs[:, ::self.max_sentence_length].clone()
             sentence_attention_mask = attention_mask[:, :, :, ::self.max_sentence_length].clone()
 
-            document_sinusoidal_pos = sinusoidal_pos[:, ::self.max_sentence_length,
-                                      :] if sinusoidal_pos is not None else None
-
-            document_outputs = self.document_encoder(
-                sentence_global_tokens,
-                attention_mask=sentence_attention_mask,
-                sinusoidal_pos=document_sinusoidal_pos,
-                output_attentions=output_attentions,
-            )
+            document_outputs = self.document_encoder(sentence_global_tokens,
+                                                     sentence_attention_mask,
+                                                     output_attentions=output_attentions)
 
             # replace sentence representative tokens
             outputs[:, ::self.max_sentence_length] = document_outputs[0]
@@ -541,7 +529,6 @@ class RoHATLayer(nn.Module):
             return outputs, sentence_outputs[1], document_outputs[1]
 
         return outputs, None
-
 
 
 class TransformerLayer(nn.Module):
@@ -555,11 +542,11 @@ class TransformerLayer(nn.Module):
         self.output = RoFormerOutput(config)
 
     def forward(
-        self,
-        hidden_states,
-        attention_mask=None,
-        sinusoidal_pos=None,
-        output_attentions=False,
+            self,
+            hidden_states,
+            attention_mask=None,
+            sinusoidal_pos=None,
+            output_attentions=False,
     ):
         self_attention_outputs = self.attention(
             hidden_states,
@@ -584,20 +571,22 @@ class RoHATEncoder(nn.Module):
         super().__init__()
         self.config = config
         self.layer = nn.ModuleList([RoHATLayer(config,
-                                                       use_sentence_encoder=self.config.encoder_layout[str(idx)]['sentence_encoder'],
-                                                       use_document_encoder=self.config.encoder_layout[str(idx)]['document_encoder'])
+                                               use_sentence_encoder=self.config.encoder_layout[str(idx)][
+                                                   'sentence_encoder'],
+                                               use_document_encoder=self.config.encoder_layout[str(idx)][
+                                                   'document_encoder'])
                                     for idx in range(config.num_hidden_layers)])
         self.gradient_checkpointing = False
 
     def forward(
-        self,
-        hidden_states,
-        attention_mask=None,
-        num_sentences=None,
-        use_cache=None,
-        output_attentions=False,
-        output_hidden_states=False,
-        return_dict=True,
+            self,
+            hidden_states,
+            attention_mask=None,
+            num_sentences=None,
+            use_cache=None,
+            output_attentions=False,
+            output_hidden_states=False,
+            return_dict=True,
     ):
         all_hidden_states = () if output_hidden_states else None
         all_self_attentions = () if output_attentions else None
@@ -659,6 +648,7 @@ class RoHATEncoder(nn.Module):
             attentions=all_self_attentions,
             sentence_attentions=all_sentence_attentions,
         )
+
 
 class RoHATPreTrainedModel(PreTrainedModel):
     """
@@ -818,6 +808,7 @@ class RoHATSentencizer(nn.Module):
         sentence_outputs = self.activation(sentence_outputs)
         return sentence_outputs
 
+
 @add_start_docstrings(
     "The bare RoHAT Model transformer outputting raw hidden-states without any specific head on top.",
     RoHAT_START_DOCSTRING,
@@ -837,7 +828,8 @@ class RoHATModel(RoHATPreTrainedModel):
     .. _*Attention is all you need*: https://arxiv.org/abs/1706.03762
 
     """
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+
+    # _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     # Copied from transformers.models.bert.modeling_bert.BertModel.__init__ with Bert->RoHAT
     def __init__(self, config):
@@ -873,15 +865,15 @@ class RoHATModel(RoHATPreTrainedModel):
     )
     # Copied from transformers.models.bert.modeling_bert.BertModel.forward
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        inputs_embeds=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            inputs_embeds=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
 
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
@@ -922,7 +914,7 @@ class RoHATModel(RoHATPreTrainedModel):
 
         embedding_output = self.embeddings(
             input_ids=input_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             token_type_ids=token_type_ids,
             inputs_embeds=inputs_embeds,
         )
@@ -1012,7 +1004,7 @@ class RoHATSiameseHead(nn.Module):
 @add_start_docstrings("""RoHAT Model with a `language modeling` head on top.""", RoHAT_START_DOCSTRING)
 class RoHATForMaskedLM(RoHATPreTrainedModel):
     _tied_weights_keys = ["lm_head.decoder.weight", "lm_head.decoder.bias"]
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+    # _keys_to_ignore_on_load_missing = [r"position_ids"]
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
 
     def __init__(self, config):
@@ -1068,16 +1060,16 @@ class RoHATForMaskedLM(RoHATPreTrainedModel):
         mask="<mask>",
     )
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            inputs_embeds=None,
+            labels=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         r"""
         labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
@@ -1093,7 +1085,7 @@ class RoHATForMaskedLM(RoHATPreTrainedModel):
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
@@ -1120,7 +1112,7 @@ class RoHATForMaskedLM(RoHATPreTrainedModel):
 
 
 class RoHATModelForDocumentRepresentation(RoHATPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+    # _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config, pooling='max'):
         super().__init__(config)
@@ -1128,7 +1120,7 @@ class RoHATModelForDocumentRepresentation(RoHATPreTrainedModel):
         self.config = config
         self.max_sentence_length = config.max_sentence_length
 
-        self.hi_transformer = RoHATModel(config)
+        self.rohat = RoHATModel(config)
         self.pooler = RoHATPooler(config, pooling=pooling)
 
         # Initialize weights and apply final processing
@@ -1142,17 +1134,17 @@ class RoHATModelForDocumentRepresentation(RoHATPreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            labels=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         r"""
         labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
@@ -1162,11 +1154,11 @@ class RoHATModelForDocumentRepresentation(RoHATPreTrainedModel):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.hi_transformer(
+        outputs = self.rohat(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
@@ -1194,17 +1186,17 @@ class RoHATModelForDocumentRepresentation(RoHATPreTrainedModel):
 
 
 @add_start_docstrings(""" RoHAT Model transformer for masked sentence representation prediction """,
-    RoHAT_START_DOCSTRING,
-)
+                      RoHAT_START_DOCSTRING,
+                      )
 class RoHATModelForMaskedSentenceRepresentation(RoHATPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+    # _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
         self.config = config
 
-        self.hi_transformer = RoHATModel(config)
+        self.rohat = RoHATModel(config)
         self.sentencizer = RoHATSentencizer(config)
 
         # Initialize weights and apply final processing
@@ -1218,17 +1210,17 @@ class RoHATModelForMaskedSentenceRepresentation(RoHATPreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            labels=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         r"""
         labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
@@ -1238,11 +1230,11 @@ class RoHATModelForMaskedSentenceRepresentation(RoHATPreTrainedModel):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.hi_transformer(
+        outputs = self.rohat(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
@@ -1280,7 +1272,7 @@ class RoHATModelForBoWPreTraining(RoHATPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
 
-        self.hi_transformer = RoHATModel(config)
+        self.rohat = RoHATModel(config)
         if self.config.mlm or self.config.mslm:
             self.lm_head = RoHATLMHead(config)
         if self.config.srp or self.config.srp:
@@ -1295,29 +1287,29 @@ class RoHATModelForBoWPreTraining(RoHATPreTrainedModel):
         self.post_init()
 
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        inputs_embeds=None,
-        labels=None,
-        document_labels=None,
-        sentence_labels=None,
-        sentence_masks=None,
-        sentence_mask_ids=None,
-        document_mask_ids=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            inputs_embeds=None,
+            labels=None,
+            document_labels=None,
+            sentence_labels=None,
+            sentence_masks=None,
+            sentence_mask_ids=None,
+            document_mask_ids=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.hi_transformer(
+        outputs = self.rohat(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
@@ -1370,13 +1362,15 @@ class RoHATModelForBoWPreTraining(RoHATPreTrainedModel):
         if sentence_labels is not None:
             if self.config.sentence_embedding_size != self.config.vocab_size:
                 loss_fct = CosineEmbeddingLoss()
-                srp_loss = loss_fct(sentence_prediction_scores.view(-1, sentence_labels.shape[-1])[sentence_masks.view(-1).bool()],
-                                    sentence_labels.view(-1, sentence_labels.shape[-1])[sentence_masks.view(-1).bool()],
-                                    torch.ones((sentence_masks.view(-1).sum(), ), device=sentence_masks.device))
+                srp_loss = loss_fct(
+                    sentence_prediction_scores.view(-1, sentence_labels.shape[-1])[sentence_masks.view(-1).bool()],
+                    sentence_labels.view(-1, sentence_labels.shape[-1])[sentence_masks.view(-1).bool()],
+                    torch.ones((sentence_masks.view(-1).sum(),), device=sentence_masks.device))
             else:
                 loss_fct = BCEWithLogitsLoss()
-                srp_loss = loss_fct(sentence_prediction_scores.view(-1, sentence_labels.shape[-1])[sentence_masks.view(-1).bool()],
-                                    sentence_labels.view(-1, sentence_labels.shape[-1])[sentence_masks.view(-1).bool()])
+                srp_loss = loss_fct(
+                    sentence_prediction_scores.view(-1, sentence_labels.shape[-1])[sentence_masks.view(-1).bool()],
+                    sentence_labels.view(-1, sentence_labels.shape[-1])[sentence_masks.view(-1).bool()])
             if labels is not None or document_labels is not None:
                 total_loss += srp_loss
             else:
@@ -1414,7 +1408,7 @@ class RoHATModelForVICRegPreTraining(RoHATPreTrainedModel):
 
         self.document_regularization = document_regularization
         self.sentence_regularization = sentence_regularization
-        self.hi_transformer = RoHATModel(config)
+        self.rohat = RoHATModel(config)
         if self.config.mlm:
             self.lm_head = RoHATLMHead(config)
         if self.config.sent_sim or self.config.doc_sim:
@@ -1426,36 +1420,36 @@ class RoHATModelForVICRegPreTraining(RoHATPreTrainedModel):
         self.post_init()
 
     def forward(
-        self,
-        input_ids=None,
-        secondary_input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        labels=None,
-        secondary_labels=None,
-        sentence_masks=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            secondary_input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            labels=None,
+            secondary_labels=None,
+            sentence_masks=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        primary_outputs = self.hi_transformer(
+        primary_outputs = self.rohat(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
 
-        secondary_outputs = self.hi_transformer(
+        secondary_outputs = self.rohat(
             secondary_input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
@@ -1482,7 +1476,6 @@ class RoHATModelForVICRegPreTraining(RoHATPreTrainedModel):
             primary_pooled_outputs = self.pooler(primary_sentence_outputs)
             secondary_pooled_outputs = self.pooler(secondary_sentence_outputs)
 
-
         total_loss = None
         masked_lm_loss = None
         if labels is not None:
@@ -1490,7 +1483,8 @@ class RoHATModelForVICRegPreTraining(RoHATPreTrainedModel):
             masked_lm_loss = loss_fct(primary_prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
             total_loss = masked_lm_loss.clone() / 2
         if secondary_labels is not None:
-            masked_lm_loss = loss_fct(secondary_prediction_scores.view(-1, self.config.vocab_size), secondary_labels.view(-1))
+            masked_lm_loss = loss_fct(secondary_prediction_scores.view(-1, self.config.vocab_size),
+                                      secondary_labels.view(-1))
             total_loss += masked_lm_loss / 2
 
         sent_sim_loss = None
@@ -1531,7 +1525,8 @@ class RoHATModelForVICRegPreTraining(RoHATPreTrainedModel):
 
         if not return_dict:
             output = (primary_prediction_scores,) + primary_outputs[2:]
-            return ((total_loss, masked_lm_loss, sent_sim_loss, doc_sim_loss) + output) if total_loss is not None else output
+            return ((total_loss, masked_lm_loss, sent_sim_loss,
+                     doc_sim_loss) + output) if total_loss is not None else output
 
         return RoHATForVICRegPreTrainingOutput(
             loss=total_loss,
@@ -1567,7 +1562,7 @@ class RoHATModelForSimCLRPreTraining(RoHATPreTrainedModel):
 
         self.document_regularization = document_regularization
         self.sentence_regularization = sentence_regularization
-        self.hi_transformer = RoHATModel(config)
+        self.rohat = RoHATModel(config)
         if self.config.mlm:
             self.lm_head = RoHATLMHead(config)
         if self.config.sent_sim or self.config.doc_sim:
@@ -1578,36 +1573,36 @@ class RoHATModelForSimCLRPreTraining(RoHATPreTrainedModel):
         self.post_init()
 
     def forward(
-        self,
-        input_ids=None,
-        secondary_input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        labels=None,
-        secondary_labels=None,
-        sentence_masks=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            secondary_input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            labels=None,
+            secondary_labels=None,
+            sentence_masks=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        primary_outputs = self.hi_transformer(
+        primary_outputs = self.rohat(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
 
-        secondary_outputs = self.hi_transformer(
+        secondary_outputs = self.rohat(
             secondary_input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
@@ -1641,7 +1636,8 @@ class RoHATModelForSimCLRPreTraining(RoHATPreTrainedModel):
             masked_lm_loss = loss_fct(primary_prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
             total_loss = masked_lm_loss.clone() / 2
         if secondary_labels is not None:
-            masked_lm_loss = loss_fct(secondary_prediction_scores.view(-1, self.config.vocab_size), secondary_labels.view(-1))
+            masked_lm_loss = loss_fct(secondary_prediction_scores.view(-1, self.config.vocab_size),
+                                      secondary_labels.view(-1))
             total_loss += masked_lm_loss / 2
 
         sent_contr_loss = None
@@ -1660,15 +1656,19 @@ class RoHATModelForSimCLRPreTraining(RoHATPreTrainedModel):
             sentence_queue = torch.cat([flatten_primary_sentence_outputs, flatten_secondary_sentence_outputs], dim=0)
 
             # sentence logits: (BS x S, 2 x BS x S)
-            primary_sent_contrast_logits = torch.matmul(flatten_primary_sentence_outputs, sentence_queue.T) / self.config.temperature
-            secondary_sent_contrast_logits = torch.matmul(flatten_secondary_sentence_outputs, sentence_queue.T) / self.config.temperature
+            primary_sent_contrast_logits = torch.matmul(flatten_primary_sentence_outputs,
+                                                        sentence_queue.T) / self.config.temperature
+            secondary_sent_contrast_logits = torch.matmul(flatten_secondary_sentence_outputs,
+                                                          sentence_queue.T) / self.config.temperature
 
             batch_size = primary_sent_contrast_logits.shape[0]
 
             # mask-out self-contrast cases
             logits_mask = torch.eye(batch_size, batch_size).to(input_ids.device)
-            primary_logits_mask = torch.cat([logits_mask, torch.zeros_like(logits_mask).to(input_ids.device)], dim=1).to(input_ids.device)
-            secondary_logits_mask = torch.cat([torch.zeros_like(logits_mask).to(input_ids.device), logits_mask], dim=1).to(input_ids.device)
+            primary_logits_mask = torch.cat([logits_mask, torch.zeros_like(logits_mask).to(input_ids.device)],
+                                            dim=1).to(input_ids.device)
+            secondary_logits_mask = torch.cat([torch.zeros_like(logits_mask).to(input_ids.device), logits_mask],
+                                              dim=1).to(input_ids.device)
 
             primary_sent_contrast_logits += (primary_logits_mask * -1e3)
             secondary_sent_contrast_logits += (secondary_logits_mask * -1e3)
@@ -1685,7 +1685,7 @@ class RoHATModelForSimCLRPreTraining(RoHATPreTrainedModel):
 
             # compute loss for both branches
             sent_contr_loss = (loss_fct(primary_sent_contrast_logits, primary_sentence_labels) +
-                                   loss_fct(secondary_sent_contrast_logits, secondary_sentence_labels)) * 0.5
+                               loss_fct(secondary_sent_contrast_logits, secondary_sentence_labels)) * 0.5
 
             # sentence outputs variance, covariance
             sent_std_loss, sent_cov_loss = vic_reg(
@@ -1710,15 +1710,19 @@ class RoHATModelForSimCLRPreTraining(RoHATPreTrainedModel):
             document_queue = torch.cat([primary_pooled_outputs, secondary_pooled_outputs], dim=0)
 
             # sentence logits: (BS, 2 x BS)
-            primary_doc_contrast_logits = torch.matmul(primary_pooled_outputs, document_queue.T) / self.config.temperature
-            secondary_doc_contrast_logits = torch.matmul(secondary_pooled_outputs, document_queue.T) / self.config.temperature
+            primary_doc_contrast_logits = torch.matmul(primary_pooled_outputs,
+                                                       document_queue.T) / self.config.temperature
+            secondary_doc_contrast_logits = torch.matmul(secondary_pooled_outputs,
+                                                         document_queue.T) / self.config.temperature
 
             batch_size = primary_doc_contrast_logits.shape[0]
 
             # mask-out self-contrast cases
             logits_mask = torch.eye(batch_size, batch_size).to(input_ids.device)
-            primary_logits_mask = torch.cat([logits_mask, torch.zeros_like(logits_mask).to(input_ids.device)], dim=1).to(input_ids.device)
-            secondary_logits_mask = torch.cat([torch.zeros_like(logits_mask).to(input_ids.device), logits_mask], dim=1).to(input_ids.device)
+            primary_logits_mask = torch.cat([logits_mask, torch.zeros_like(logits_mask).to(input_ids.device)],
+                                            dim=1).to(input_ids.device)
+            secondary_logits_mask = torch.cat([torch.zeros_like(logits_mask).to(input_ids.device), logits_mask],
+                                              dim=1).to(input_ids.device)
 
             primary_doc_contrast_logits += (primary_logits_mask * -1e3)
             secondary_doc_contrast_logits += (secondary_logits_mask * -1e3)
@@ -1742,7 +1746,8 @@ class RoHATModelForSimCLRPreTraining(RoHATPreTrainedModel):
 
         if not return_dict:
             output = (primary_prediction_scores,) + primary_outputs[2:]
-            return ((total_loss, masked_lm_loss, sent_contr_loss, doc_contr_loss) + output) if total_loss is not None else output
+            return ((total_loss, masked_lm_loss, sent_contr_loss,
+                     doc_contr_loss) + output) if total_loss is not None else output
 
         return RoHATForSimCLRPreTrainingOutput(
             loss=total_loss,
@@ -1767,7 +1772,7 @@ class RoHATModelForSimCLRPreTraining(RoHATPreTrainedModel):
     RoHAT_START_DOCSTRING,
 )
 class RoHATForSequenceClassification(RoHATPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+    # _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config, pooling='max'):
         super().__init__(config)
@@ -1776,7 +1781,7 @@ class RoHATForSequenceClassification(RoHATPreTrainedModel):
         self.max_sentence_length = config.max_sentence_length
         self.pooling = pooling
 
-        self.hi_transformer = RoHATModel(config)
+        self.rohat = RoHATModel(config)
         classifier_dropout = (
             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
         )
@@ -1795,16 +1800,16 @@ class RoHATForSequenceClassification(RoHATPreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            inputs_embeds=None,
+            labels=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         r"""
         labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
@@ -1814,11 +1819,11 @@ class RoHATForSequenceClassification(RoHATPreTrainedModel):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.hi_transformer(
+        outputs = self.rohat(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
@@ -1871,17 +1876,17 @@ class RoHATForSequenceClassification(RoHATPreTrainedModel):
 
 
 @add_start_docstrings(""" RoHAT Model transformer for masked sentence representation prediction """,
-    RoHAT_START_DOCSTRING,
-)
+                      RoHAT_START_DOCSTRING,
+                      )
 class RoHATModelForSequentialSentenceClassification(RoHATPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+    # _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
         self.config = config
 
-        self.hi_transformer = RoHATModel(config)
+        self.rohat = RoHATModel(config)
         self.sentencizer = RoHATSentencizer(config)
         classifier_dropout = (
             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
@@ -1900,16 +1905,16 @@ class RoHATModelForSequentialSentenceClassification(RoHATPreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            inputs_embeds=None,
+            labels=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         r"""
         labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
@@ -1919,11 +1924,11 @@ class RoHATModelForSequentialSentenceClassification(RoHATPreTrainedModel):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.hi_transformer(
+        outputs = self.rohat(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
@@ -1979,14 +1984,14 @@ class RoHATModelForSequentialSentenceClassification(RoHATPreTrainedModel):
     RoHAT_START_DOCSTRING,
 )
 class RoHATForMultipleChoice(RoHATPreTrainedModel):
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+    # _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config, pooling='last'):
         super().__init__(config)
 
         self.pooling = pooling
         self.max_sentence_length = config.max_sentence_length
-        self.hi_transformer = RoHATModel(config)
+        self.rohat = RoHATModel(config)
         classifier_dropout = (
             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
         )
@@ -2005,16 +2010,16 @@ class RoHATForMultipleChoice(RoHATPreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-        self,
-        input_ids=None,
-        token_type_ids=None,
-        attention_mask=None,
-        labels=None,
-        position_ids=None,
-        inputs_embeds=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            token_type_ids=None,
+            attention_mask=None,
+            labels=None,
+            # position_ids=None,
+            inputs_embeds=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         r"""
         labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
@@ -2026,7 +2031,7 @@ class RoHATForMultipleChoice(RoHATPreTrainedModel):
         num_choices = input_ids.shape[1] if input_ids is not None else inputs_embeds.shape[1]
 
         flat_input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
-        flat_position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+        # flat_position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
         flat_token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
         flat_attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
         flat_inputs_embeds = (
@@ -2035,9 +2040,9 @@ class RoHATForMultipleChoice(RoHATPreTrainedModel):
             else None
         )
 
-        outputs = self.hi_transformer(
+        outputs = self.rohat(
             flat_input_ids,
-            position_ids=flat_position_ids,
+            # position_ids=flat_position_ids,
             token_type_ids=flat_token_type_ids,
             attention_mask=flat_attention_mask,
             inputs_embeds=flat_inputs_embeds,
@@ -2083,13 +2088,14 @@ class RoHATForMultipleChoice(RoHATPreTrainedModel):
 )
 class RoHATForTokenClassification(RoHATPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+
+    # _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
 
-        self.hi_transformer = RoHATModel(config, add_pooling_layer=False)
+        self.rohat = RoHATModel(config, add_pooling_layer=False)
         classifier_dropout = (
             config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
         )
@@ -2107,16 +2113,16 @@ class RoHATForTokenClassification(RoHATPreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            inputs_embeds=None,
+            labels=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         r"""
         labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
@@ -2124,11 +2130,11 @@ class RoHATForTokenClassification(RoHATPreTrainedModel):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.hi_transformer(
+        outputs = self.rohat(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
@@ -2166,13 +2172,14 @@ class RoHATForTokenClassification(RoHATPreTrainedModel):
 )
 class RoHATForQuestionAnswering(RoHATPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
-    _keys_to_ignore_on_load_missing = [r"position_ids"]
+
+    # _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
 
-        self.hi_transformer = RoHATModel(config, add_pooling_layer=False)
+        self.rohat = RoHATModel(config, add_pooling_layer=False)
         self.qa_outputs = nn.Linear(config.hidden_size, config.num_labels)
 
         # Initialize weights and apply final processing
@@ -2186,18 +2193,18 @@ class RoHATForQuestionAnswering(RoHATPreTrainedModel):
         config_class=_CONFIG_FOR_DOC,
     )
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        start_positions=None,
-        end_positions=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            # position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            start_positions=None,
+            end_positions=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         r"""
         start_positions (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
@@ -2211,11 +2218,11 @@ class RoHATForQuestionAnswering(RoHATPreTrainedModel):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.hi_transformer(
+        outputs = self.rohat(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
+            # position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
@@ -2260,21 +2267,6 @@ class RoHATForQuestionAnswering(RoHATPreTrainedModel):
         )
 
 
-def create_position_ids_from_input_ids(input_ids, padding_idx, position_ids):
-    """
-    Replace non-padding symbols with their position numbers. Position numbers begin at padding_idx+1. Padding symbols
-    are ignored. This is modified from fairseq's `utils.make_positions`.
-
-    Args:
-        x: torch.Tensor x:
-
-    Returns: torch.Tensor
-    """
-    # The series of casts and type-conversions here are carefully balanced to both work with ONNX export and XLA.
-    mask = input_ids.ne(padding_idx).int()
-    return position_ids[:, :input_ids.size(1)].repeat(input_ids.size(0), 1) * mask
-
-
 def normalized_output_std_loss(x):
     return torch.std(x / torch.nn.functional.normalize(x, dim=1), dim=0).mean()
 
@@ -2296,4 +2288,3 @@ def off_diagonal(x):
     n, m = x.shape
     assert n == m
     return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
-
