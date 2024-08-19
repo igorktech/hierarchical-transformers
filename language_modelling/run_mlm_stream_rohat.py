@@ -352,7 +352,7 @@ def main():
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
-    if model_args.model_name_or_path and 'hat' in model_args.model_name_or_path:
+    if model_args.model_name_or_path and 'rohat' in model_args.model_name_or_path:
         config = RoHATConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
     elif model_args.model_name_or_path:
         config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
@@ -374,7 +374,7 @@ def main():
         "use_auth_token": True if model_args.use_auth_token else None,
         "model_max_length": data_args.max_seq_length,
     }
-    if config.model_type == 'hierarchical-transformer':
+    if config.model_type == 'rohat':
         if model_args.tokenizer_name:
             tokenizer = RoHATTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
         else:
@@ -392,7 +392,7 @@ def main():
         )
 
     if model_args.model_name_or_path:
-        if config.model_type == 'hierarchical-transformer':
+        if config.model_type == 'rohat':
             model = RoHATForMaskedLM.from_pretrained(
                 model_args.model_name_or_path,
                 from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -421,7 +421,7 @@ def main():
             )
     else:
         logger.info("Training new model from scratch")
-        if config.model_type == 'hierarchical-transformer':
+        if config.model_type == 'rohat':
             model = RoHATForMaskedLM.from_config(config)
         else:
             model = AutoModelForMaskedLM.from_config(config)
@@ -461,7 +461,7 @@ def main():
         # When using line_by_line, we just tokenize each nonempty line.
         padding = "max_length" if data_args.pad_to_max_length else False
 
-        if config.model_type in ['hierarchical-transformer', 'longformer']:
+        if config.model_type in ['rohat', 'longformer']:
             print("HERERE")
             def tokenize_function(examples):
                 # Remove empty lines
@@ -510,7 +510,7 @@ def main():
         # When using min_sequence_length, we just tokenize each nonempty line.
         padding = "max_length" if data_args.pad_to_max_length else False
 
-        if config.model_type in ['hierarchical-transformer', 'longformer']:
+        if config.model_type in ['rohat', 'longformer']:
             def tokenize_function(examples):
                 # Remove empty lines
                 examples[text_column_name] = [
